@@ -9,7 +9,7 @@ export SPOTIPY_CLIENT_SECRET='your-spotify-client-secret'
 export SPOTIPY_REDIRECT_URI='your-app-redirect-url'
 '''
 
-scope = "user-library-read"
+scope = "user-library-read playlist-read-private"
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
 
 def get_artists_from_tracks(tracks, batch_size=50):
@@ -48,9 +48,39 @@ def get_tracks_from_playlist_set(playlists_items, limit=50, offset=0, batch_size
 
     return all_tracks
 
-def get_user_playlists_pop():
+def get_all_user_playlists():
+    '''Retrieve all current-user playlists, public and private'''
 
-    # Retrieve all saved tracks for the current user by handling
+    playlists = []
+    offset = 0
+    limit = 50  # Maximum limit per request
+    while True:
+        results = sp.current_user_playlists(limit=limit, offset=offset)
+        playlists.extend(results['items'])
+        offset += len(results['items'])
+        if len(results['items']) < limit:
+            break
+    return playlists
+
+def search_playlists_exact(query, limit=50):
+    '''Search for playlists by name'''
+    results = sp.search(q='playlist:"' + query + '"', type='playlist', limit=limit)
+    playlists = results['playlists']['items']
+    exact_match_playlists = [playlist for playlist in playlists if query in playlist['name']]
+
+    return exact_match_playlists
+
+def search_playlists(query, limit=50):
+    '''Search for playlists by name'''
+    results = sp.search(q=query, type='playlist', limit=limit)
+    playlists = results['playlists']['items']
+    match_playlists = [playlist for playlist in playlists if any(word in playlist['name'] for word in query.split())]
+
+    return match_playlists
+
+def get_user_playlists_pop():
+    '''Get names and popularity of artists in all public user playlists, plus Liked Songs'''
+
     all_saved_tracks = []
     offset = 0
     limit = 50  # Maximum limit per request
@@ -64,24 +94,44 @@ def get_user_playlists_pop():
             break  # Reached the end of saved tracks
 
     # same for all of my playlists
-    playlists = sp.current_user_playlists()
-    pub_playlists_items = [playlist for playlist in playlists['items'] if playlist['public']]
+    playlists = get_all_user_playlists()
+    pub_playlists_items = [playlist for playlist in playlists if playlist['public']]
     all_tracks = get_tracks_from_playlist_set(pub_playlists_items, limit=limit, offset=offset, all_tracks=all_saved_tracks)
 
     return get_artists_from_tracks(all_tracks)
 
 def get_spotify_featured_playlists_pop():
-
-    # Retrieve featured playlists
+    '''Get names and popularity of artists in Spotify Featured Playlists'''
     featured_playlists = sp.featured_playlists()
     pub_playlists_items = [playlist for playlist in featured_playlists['playlists']['items'] if playlist['public']]
     all_tracks = get_tracks_from_playlist_set(pub_playlists_items)
 
     return get_artists_from_tracks(all_tracks)
 
-def get_given_playlist_pop(playlist_id):
+def get_spotify_dscvr_wkly_playlists_pop():
+    '''Get names and popularity of artists in Spotify Discover Weekly Playlists'''
+    playlists = get_all_user_playlists()
+    discover_weekly_playlists = [playlist for playlist in playlists if playlist['name'] == 'Discover Weekly']
+    all_tracks = get_tracks_from_playlist_set(discover_weekly_playlists)
 
-    # Retrieve all saved tracks for the current user by handling
+    return get_artists_from_tracks(all_tracks)
+
+def get_spotify_new_rls_playlists_pop():
+    '''Get names and popularity of artists in Spotify New Releases Playlists'''
+    new_releases_playlists = search_playlists("New Releases", limit=50)
+    spotify_playlists = [
+        playlist for playlist in new_releases_playlists
+        if playlist['owner']['id'] == 'spotify'
+        and 'classical' not in playlist['name'].lower()
+    ]
+    all_tracks = get_tracks_from_playlist_set(spotify_playlists)
+
+    return get_artists_from_tracks(all_tracks)
+
+def get_given_playlist_pop(playlist_id):
+    '''Get names and popularity of artists in for a given playlist from any user,
+    public or private'''
+
     all_saved_tracks = []
     offset = 0
     limit = 50  # Maximum limit per request
@@ -95,36 +145,11 @@ def get_given_playlist_pop(playlist_id):
 
     return get_artists_from_tracks(all_saved_tracks)
 
-def fetch_random_artists(num_artists=1000):
-    all_artists = []
-    offset = 0
-    limit = 50  # Adjust the limit as needed
-
-    while True:
-        # Perform search query to fetch artists
-        results = sp.search(q='a', type='artist', limit=limit, offset=offset)
-        artists = results['artists']['items']
-        all_artists.extend(artists)
-        offset += limit
-        if (len(artists) < limit) or (len(all_artists) >= num_artists):
-            break
-    
-    results = [artist for artist in results if artist['type'] == 'artist']
-
-    return all_artists
-
-def get_random_artists_pop(num_artists=1000):
-    all_artists = fetch_random_artists(num_artists)
-    artist_ids = [artist['id'] for artist in all_artists]
-    artist_names = [artist['name'] for artist in all_artists]
-    artist_pop = [artist['popularity'] for artist in all_artists]
-
-    return artist_ids, artist_names, artist_pop
-
 if __name__ == "__main__":
     #artist_ids, artist_names, artist_pop = get_spotify_featured_playlists_pop()
+    #artist_ids, artist_names, artist_pop = get_spotify_dscvr_wkly_playlists_pop()
+    artist_ids, artist_names, artist_pop = get_spotify_new_rls_playlists_pop()
     #artist_ids, artist_names, artist_pop = get_user_playlists_pop()
     #artist_ids, artist_names, artist_pop = get_given_playlist_pop('0mUvry1g2VavEPfpRT6iuh')
-    artist_ids, artist_names, artist_pop = get_random_artists_pop()
     for name, pop in zip(artist_names, artist_pop):
         print(f"{name} - Popularity: {pop}")
