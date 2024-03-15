@@ -3,6 +3,8 @@ import argparse, logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+import pandas as pd
+import os, glob
 import pickle
 
 DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
@@ -35,8 +37,8 @@ def get_all_artist_names_musicbrainz(start_offset=0, num_artists=1000):
 
     return all_artist_names
 
-def save_all_artist_names_musicbrainz():
-    '''Save batches of artist names from the MusicBrainz database to a file.
+def save_all_artist_names_musicbrainz_temp():
+    '''Save batches of artist names from the MusicBrainz database to a pickle file.
     Will continue until interrupted or until there are no more names left to
     fetch in the database.'''
 
@@ -54,5 +56,27 @@ def save_all_artist_names_musicbrainz():
         num_artist_names = len(all_artist_names)
         start_offset += num_artists_batch
 
+def write_all_pickles_to_csv():
+    '''Write all pickles to a single csv file'''
+
+    all_pickles = glob.glob(DEFAULT_OUTPUT_DIR + "artist_names_*.pkl")
+    all_artist_names = []
+    for p in all_pickles:
+        with open(p, "rb") as f:
+            all_artist_names.extend(pickle.load(f))
+
+    df = pd.DataFrame(all_artist_names, columns=["artist_name"])
+    df.to_csv(DEFAULT_OUTPUT_DIR + "all_artist_names.csv", index=False)
+
+def check_len_artist_name_csv():
+    '''Check the length of the csv file'''
+
+    assert os.path.exists(DEFAULT_OUTPUT_DIR + "all_artist_names.csv"), "CSV file does not exist"
+
+    df = pd.read_csv(DEFAULT_OUTPUT_DIR + "all_artist_names.csv")
+    print(len(df))
+
 if __name__ == "__main__":
-    save_all_artist_names_musicbrainz()
+    #save_all_artist_names_musicbrainz_temp()
+    #write_all_pickles_to_csv()
+    check_len_artist_name_csv()

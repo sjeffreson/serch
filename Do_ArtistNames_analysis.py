@@ -7,18 +7,14 @@ import sys, os, glob, re
 regex = re.compile(r"\d+")
 import random
 import numpy as np
+import time
 
 # time this function
-data = ArtistNames(rand_num_artist_names=100, random_seed=42)
-#np.save('artist_info_rand_{:d}.npy'.format(rand_num_artist_names), data.artist_info)
-print(data.artist_info['names'])
-print(data.artist_info['popularity'])
-
-# legacy_artists = data.get_famous_legacy_artists()
-# print(legacy_artists['popularity'])
-
-# active_artist_data = data.get_active_artists()
-# print(active_artist_data['popularity'])
-
-# data.clean_unproductive_artists()
-# print(data.artist_info['popularity'])
+total_num_artist_names = 850000
+for num_artist_names in range(2000, total_num_artist_names, 1000):
+    start_time = time.time()
+    data = ArtistNames(rand_num_artist_names=num_artist_names, random_seed=42)
+    data.get_artist_info()
+    print(f"Time to load data: {time.time() - start_time}. Pausing for 2 minutes...")
+    time.sleep(120)
+    del data
