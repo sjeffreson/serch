@@ -1,5 +1,7 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.exceptions import SpotifyException
+
 import argparse, logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,7 +56,7 @@ class ArtistNames:
         artist_names = self.remove_duplicates_preserve_order(artist_names)
         artist_names = [name for name in artist_names if name is not None]
         artist_names = [name for name in artist_names if len(name) > 0]
-        # remove names with brackets, these are indicated as not artists by MusicBrainz
+        '''remove names with brackets, these are indicated as not artists by MusicBrainz'''
         artist_names = [name for name in artist_names if '[' not in name and ']' not in name]
 
         self.artist_names = artist_names
@@ -69,17 +71,29 @@ class ArtistNames:
         seen = set()
         return [x for x in seq if not (x in seen or seen.add(x))]
 
-    def get_artist_spotify_info(self, artist_name) -> Dict[str, str]:
-        '''Fetch artist information from Spotify'''
+    def get_artist_spotify_ids(self, query) -> Dict[str, str]:
+        '''Fetch artist ids from Spotify. Max search query string length is 100 characters.'''
 
-        results = sp.search(q=f'artist:"{artist_name}"', type='artist', limit=1)
+        if len(query.split(' OR ')) > 50:
+            raise ValueError('Query length is too long. Max length is 50 artists.')
+
+        results = sp.search(q=query, type='artist', limit=50)
         artists = results['artists']['items']
-        if len(artists) == 0:
+
+        # print total number of results
+        print(f"Total number of results: {results['artists']['total']}")
+
+        '''check for exact matches'''
+        exact_matches = []
+        for artist in artists:
+            if artist['name'].lower() in query.lower():
+                exact_matches.append(artist)
+
+        if len(exact_matches) == 0:
             return None
         else:
-            artist_id = artists[0]['id']
-            artist_info = sp.artist(artist_id)
-            return artist_info
+            artist_ids = [artist['id'] for artist in exact_matches]
+            return artist_ids
 
     def get_artist_release_dates(self, artist_id) -> List[str]:
         '''Get the release years of all albums and singles by a given artist.'''
@@ -94,11 +108,15 @@ class ArtistNames:
         return album_ids, release_dates
 
     def get_artist_num_tracks(self, album_ids) -> int:
-        '''Get the number of tracks in each album by a given artist.'''
+        '''Get the number of tracks in each album by a given artist. Maximum 20 albums per
+        request, so split into batches of 20.'''
+
+        album_ids_batches = [album_ids[i:i + 20] for i in range(0, len(album_ids), 20)]
         num_tracks = 0
-        for album_id in album_ids:
-            album = sp.album(album_id)
-            num_tracks += album['total_tracks']
+        for album_ids_batch in album_ids_batches:
+            albums = sp.albums(album_ids_batch)['albums']
+            num_tracks += np.sum([album['total_tracks'] for album in albums])
+
         return num_tracks
 
     def get_artist_info(self):
@@ -117,38 +135,58 @@ class ArtistNames:
             'num_releases': [],
             'num_tracks': []
         }
-        # define batches of artist_names
-        # batch_size = 100
-        # for i in range(0, len(self.artist_names), batch_size):
-        #     batch_artist_names = self.artist_names[i:i + batch_size]
-        #     artist_info = self.get_artist_info_batch(batch_artist_names)
-        #     for key in all_artist_info.keys():
-        #         all_artist_info[key].extend(artist_info[key])
 
-        for artist_name in self.artist_names:
-            print(artist_name)
-            artist_info = self.get_artist_spotify_info(artist_name)
-            if artist_info:
-                all_artist_info['ids'].append(artist_info['id'])
-                all_artist_info['names'].append(artist_info['name'])
-                all_artist_info['popularity'].append(artist_info['popularity'])
-                all_artist_info['followers'].append(artist_info['followers']['total'])
-                genres = ', '.join(artist_info['genres'])
-                all_artist_info['genres'].append(genres)
-                album_ids, artist_release_dates = self.get_artist_release_dates(artist_info['id'])
-                if(len(artist_release_dates) == 0):
-                    all_artist_info['first_release'].append(None)
-                    all_artist_info['last_release'].append(None)
-                    all_artist_info['num_releases'].append(0)
-                    all_artist_info['num_tracks'].append(0)
-                else:
-                    all_artist_info['first_release'].append(min(artist_release_dates))
-                    all_artist_info['last_release'].append(max(artist_release_dates))
-                    all_artist_info['num_releases'].append(len(artist_release_dates))
-                    if min(artist_release_dates) > self.current_year - 10:
-                        all_artist_info['num_tracks'].append(self.get_artist_num_tracks(album_ids))
-                    else:
-                        all_artist_info['num_tracks'].append(None)
+        '''Break artist names into queries of max length 200 characters'''
+        queries = []
+        while len(self.artist_names) > 0:
+            query = 'artists:'
+            last_name = self.artist_names[0]
+            while len(query) <= 200 and len(self.artist_names) > 0:
+                last_name = self.artist_names[0]
+                query += f'"{self.artist_names.pop(0)}"' + ' OR '
+            query = query[:-4] # remove last ' OR '
+            if len(query) > 200:
+                self.artist_names.insert(0, last_name)
+                query = query[:-len(last_name)-4]
+            print(type(query), query, len(query))
+            queries.append(query)
+
+        artist_ids = []
+        for query in queries:
+            spot_ids = self.get_artist_spotify_ids(query)
+            if spot_ids is not None:
+                artist_ids.extend(spot_ids)
+        print(artist_ids, len(artist_ids))
+
+        # '''Maximum 50 artists per request to sp.artists'''
+        # artists_info = []
+        # artist_ids_batches = [artist_ids[i:i + 50] for i in range(0, len(artist_ids), 50)]
+        # for artist_ids_batch in artist_ids_batches:
+        #     artists_info_batch = sp.artists(artist_ids_batch)['artists']
+        #     artists_info.extend(artists_info_batch)
+
+        # '''Store all information in the dictionary'''
+        # for artist_info in artists_info:
+        #     all_artist_info['ids'].append(artist_info['id'])
+        #     all_artist_info['names'].append(artist_info['name'])
+        #     all_artist_info['popularity'].append(artist_info['popularity'])
+        #     all_artist_info['followers'].append(artist_info['followers']['total'])
+        #     genres = ', '.join(artist_info['genres'])
+        #     all_artist_info['genres'].append(genres)
+            # album_ids, artist_release_dates = self.get_artist_release_dates(artist_info['id'])
+            # # if(len(artist_release_dates) == 0):
+            # #     all_artist_info['first_release'].append(None)
+            # #     all_artist_info['last_release'].append(None)
+            # #     all_artist_info['num_releases'].append(0)
+            # #     all_artist_info['num_tracks'].append(0)
+            # # else:
+            # #     all_artist_info['first_release'].append(min(artist_release_dates))
+            # #     all_artist_info['last_release'].append(max(artist_release_dates))
+            # #     all_artist_info['num_releases'].append(len(artist_release_dates))
+            # #     if min(artist_release_dates) > self.current_year - 10:
+            # #         all_artist_info['num_tracks'].append(self.get_artist_num_tracks(album_ids))
+            # #     else:
+            # #         all_artist_info['num_tracks'].append(None)
 
         return all_artist_info
 
