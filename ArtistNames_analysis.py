@@ -203,8 +203,9 @@ class ArtistNames:
         '''Divide artists into batches of 30 to avoid rate limiting'''
         try:
             signal.signal(signal.SIGALRM, handler)
-            signal.alarm(timeout)
-            artist_info_batches = [artists_info[i:i + 30] for i in range(0, len(artists_info), 30)]
+            signal.alarm(20*60)
+            logger.info(f'Fetching release dates and number of tracks for {len(artists_info)} artists, will timeout after 20 minutes.')
+            artist_info_batches = [artists_info[i:i + 50] for i in range(0, len(artists_info), 50)]
             for artist_info_batch in artist_info_batches:
                 for artist_info in artist_info_batch:
                     album_ids, artist_release_dates = self.get_artist_release_dates(str(artist_info['id']))
