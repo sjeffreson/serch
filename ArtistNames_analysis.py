@@ -199,25 +199,31 @@ class ArtistNames:
             genres = ', '.join(artist_info['genres'])
             all_artist_info['genres'].append(str(genres))
             '''Get release dates and number of tracks for each artist'''
-            try:
-                ### TO DO: Need to do this in batches or you're going to get throttled again
-                signal.signal(signal.SIGALRM, handler)
-                signal.alarm(timeout)
-                album_ids, artist_release_dates = self.get_artist_release_dates(str(artist_info['id']))
-                signal.alarm(0)
-            except TimeoutError as e:
-                logger.critical(f"Operation timed out: {e}")
-                sys.exit(1)
-            if(len(artist_release_dates) == 0):
-                all_artist_info['first_release'].append(int(-1))
-                all_artist_info['last_release'].append(int(-1))
-                all_artist_info['num_releases'].append(0)
-                all_artist_info['num_tracks'].append(0)
-            else:
-                all_artist_info['first_release'].append(int(min(artist_release_dates)))
-                all_artist_info['last_release'].append(int(max(artist_release_dates)))
-                all_artist_info['num_releases'].append(int(len(artist_release_dates)))
-                all_artist_info['num_tracks'].append(int(self.get_artist_num_tracks(album_ids)))
+
+        '''Divide artists into batches of 30 to avoid rate limiting'''
+        try:
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(timeout)
+            artist_info_batches = [artists_info[i:i + 30] for i in range(0, len(artists_info), 30)]
+            for artist_info_batch in artist_info_batches:
+                for artist_info in artist_info_batch:
+                    album_ids, artist_release_dates = self.get_artist_release_dates(str(artist_info['id']))
+                    if(len(artist_release_dates) == 0):
+                        all_artist_info['first_release'].append(int(-1))
+                        all_artist_info['last_release'].append(int(-1))
+                        all_artist_info['num_releases'].append(0)
+                        all_artist_info['num_tracks'].append(0)
+                    else:
+                        all_artist_info['first_release'].append(int(min(artist_release_dates)))
+                        all_artist_info['last_release'].append(int(max(artist_release_dates)))
+                        all_artist_info['num_releases'].append(int(len(artist_release_dates)))
+                        all_artist_info['num_tracks'].append(int(self.get_artist_num_tracks(album_ids)))
+                logger.info(f'Fetched release dates and number of tracks for {len(artist_info_batch)} artists. Pausing for 30s...')
+                time.sleep(30)
+            signal.alarm(0)
+        except TimeoutError as e:
+            logger.critical(f"Operation timed out: {e}")
+            sys.exit(1)
 
         '''Store missing IDs too'''
         for missing_name in missing_names:

@@ -11,7 +11,7 @@ import time
 
 # time this function
 total_num_artist_names = 850000
-for num_artist_names in range(2000, total_num_artist_names, 1000):
+for num_artist_names in range(6000, total_num_artist_names, 1000):
     start_time = time.time()
     data = ArtistNames(rand_num_artist_names=num_artist_names, random_seed=42)
     data.get_artist_info()
