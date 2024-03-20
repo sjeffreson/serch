@@ -97,24 +97,16 @@ class ArtistNames:
 
         artist_albums = sp.artist_albums(artist_id, album_type='album,single')
 
-        release_dates, album_ids = [], []
+        release_dates, album_ids, album_types, total_tracks = [], [], [], []
         for album in artist_albums['items']:
-            release_dates.append(album['release_date'])
-            album_ids.append(album['id'])
+            album_type = album['album_type']
+            if album_type == 'album' or album_type == 'single':
+                release_dates.append(album['release_date'])
+                album_types.append(album['album_type'])
+                total_tracks = album['total_tracks']
+                album_ids.append(album['id'])
         release_dates = [int(date.split('-')[0]) for date in release_dates]
-        return album_ids, release_dates
-
-    def get_artist_num_tracks(self, album_ids) -> int:
-        '''Get the number of tracks in each album by a given artist. Maximum 20 albums per
-        request, so split into batches of 20.'''
-
-        album_ids_batches = [album_ids[i:i + 20] for i in range(0, len(album_ids), 20)]
-        num_tracks = 0
-        for album_ids_batch in album_ids_batches:
-            albums = sp.albums(album_ids_batch)['albums']
-            num_tracks += np.sum([album['total_tracks'] for album in albums])
-
-        return num_tracks
+        return album_ids, release_dates, album_types, total_tracks
 
     def get_artist_info(self):
         '''Get the relevant information for the set of artist names saved from the
@@ -203,28 +195,35 @@ class ArtistNames:
         '''Divide artists into batches of 30 to avoid rate limiting'''
         try:
             signal.signal(signal.SIGALRM, handler)
-            signal.alarm(20*60)
+            signal.alarm(timeout)
             logger.info(f'Fetching release dates and number of tracks for {len(artists_info)} artists, will timeout after 20 minutes.')
             artist_info_batches = [artists_info[i:i + 50] for i in range(0, len(artists_info), 50)]
             for artist_info_batch in artist_info_batches:
                 for artist_info in artist_info_batch:
-                    album_ids, artist_release_dates = self.get_artist_release_dates(str(artist_info['id']))
-                    if(len(artist_release_dates) == 0):
+                    album_ids, release_dates, album_types, total_tracks = self.get_artist_release_dates(str(artist_info['id']))
+                    print(total_tracks)
+                    if(len(release_dates) > 0):
+                        all_artist_info['first_release'].append(int(min(release_dates)))
+                        all_artist_info['last_release'].append(int(max(release_dates)))
+                        all_artist_info['num_releases'].append(int(len(release_dates)))
+                        all_artist_info['num_tracks'].append(int(np.sum(total_tracks)))
+                    else:
                         all_artist_info['first_release'].append(int(-1))
                         all_artist_info['last_release'].append(int(-1))
                         all_artist_info['num_releases'].append(0)
                         all_artist_info['num_tracks'].append(0)
-                    else:
-                        all_artist_info['first_release'].append(int(min(artist_release_dates)))
-                        all_artist_info['last_release'].append(int(max(artist_release_dates)))
-                        all_artist_info['num_releases'].append(int(len(artist_release_dates)))
-                        all_artist_info['num_tracks'].append(int(self.get_artist_num_tracks(album_ids)))
+
                 logger.info(f'Fetched release dates and number of tracks for {len(artist_info_batch)} artists. Pausing for 30s...')
                 time.sleep(30)
             signal.alarm(0)
         except TimeoutError as e:
             logger.critical(f"Operation timed out: {e}")
             sys.exit(1)
+
+        for key in all_artist_info.keys():
+            if len(all_artist_info[key]) != len(all_artist_info['ids']):
+                logger.critical(f"Length of {key} does not match length of ids.")
+                sys.exit(1)
 
         '''Store missing IDs too'''
         for missing_name in missing_names:
