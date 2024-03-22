@@ -1,0 +1,24 @@
+text.usetex: True
+font.family: sans-serif
+font.weight: normal
+xtick.major.pad: 5
+ytick.major.pad: 5
+axes.labelpad: 10
+font.size: 20
+legend.fontsize: 20
+legend.numpoints: 1
+savefig.dpi: 100
+mathtext.default: regular
+xtick.major.size: 5
+ytick.major.size: 5
+xtick.major.width: 1.5
+ytick.major.width: 1.5
+xtick.color: grey
+ytick.color: grey
+axes.labelcolor: grey
+axes.facecolor: (0.93, 0.93, 0.93, 1.)
+axes.grid: True
+grid.linestyle: --
+grid.color: lightgrey
+axes.linewidth: 1.5
+axes.edgecolor: dimgrey

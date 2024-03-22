@@ -1,8 +1,14 @@
+## TO DO: Extract useful functions here into artist_info_helper.py or a new
+## file, playlist_info_helper.py
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import time
 
 '''
+Just some basic functions to quickly retrieve the popularity of artists in various
+Spotify and custom playlists.
+
 Remember environment variables:
 export SPOTIPY_CLIENT_ID='your-spotify-client-id'
 export SPOTIPY_CLIENT_SECRET='your-spotify-client-secret'
@@ -13,7 +19,8 @@ scope = "user-library-read playlist-read-private"
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
 
 def get_artists_from_tracks(tracks, batch_size=50):
-    # Extract artist IDs, names, popularity from saved tracks
+    '''Extract artist IDs, names, popularity from saved tracks'''
+    
     artist_ids = []
     for item in tracks:
         track = item['track']
@@ -23,7 +30,6 @@ def get_artists_from_tracks(tracks, batch_size=50):
             artist_ids.append(artist['id'])
     artist_ids = list(set(artist_ids))
 
-    # Fetch artist information in batches, according to API rate limits
     artist_names, artist_pop = [], []
     for i in range(0, len(artist_ids), batch_size):
         batch_artist_ids = list(artist_ids)[i:i + batch_size]
@@ -64,6 +70,7 @@ def get_all_user_playlists():
 
 def search_playlists_exact(query, limit=50):
     '''Search for playlists by name'''
+
     results = sp.search(q='playlist:"' + query + '"', type='playlist', limit=limit)
     playlists = results['playlists']['items']
     exact_match_playlists = [playlist for playlist in playlists if query in playlist['name']]
@@ -72,6 +79,7 @@ def search_playlists_exact(query, limit=50):
 
 def search_playlists(query, limit=50):
     '''Search for playlists by name'''
+
     results = sp.search(q=query, type='playlist', limit=limit)
     playlists = results['playlists']['items']
     match_playlists = [playlist for playlist in playlists if any(word in playlist['name'] for word in query.split())]
@@ -102,6 +110,7 @@ def get_user_playlists_pop():
 
 def get_spotify_featured_playlists_pop():
     '''Get names and popularity of artists in Spotify Featured Playlists'''
+
     featured_playlists = sp.featured_playlists()
     pub_playlists_items = [playlist for playlist in featured_playlists['playlists']['items'] if playlist['public']]
     all_tracks = get_tracks_from_playlist_set(pub_playlists_items)
@@ -110,6 +119,7 @@ def get_spotify_featured_playlists_pop():
 
 def get_spotify_dscvr_wkly_playlists_pop():
     '''Get names and popularity of artists in Spotify Discover Weekly Playlists'''
+
     playlists = get_all_user_playlists()
     discover_weekly_playlists = [playlist for playlist in playlists if playlist['name'] == 'Discover Weekly']
     all_tracks = get_tracks_from_playlist_set(discover_weekly_playlists)
@@ -118,6 +128,7 @@ def get_spotify_dscvr_wkly_playlists_pop():
 
 def get_spotify_new_rls_playlists_pop():
     '''Get names and popularity of artists in Spotify New Releases Playlists'''
+
     new_releases_playlists = search_playlists("New Releases", limit=50)
     spotify_playlists = [
         playlist for playlist in new_releases_playlists
