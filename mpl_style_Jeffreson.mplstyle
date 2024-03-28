@@ -22,3 +22,5 @@ grid.linestyle: --
 grid.color: lightgrey
 axes.linewidth: 1.5
 axes.edgecolor: dimgrey
+axes.titlecolor: dimgrey
+axes.titlesize: 20
