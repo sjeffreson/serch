@@ -162,6 +162,9 @@ data-output/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# Archived scripts
+archived-scripts/
+
 # log files
 err_log*
 out_log*
