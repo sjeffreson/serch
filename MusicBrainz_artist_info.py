@@ -89,5 +89,5 @@ def get_artist_monthly_listeners() -> None:
     artist_info_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv", mode='a', header=False, index=False)
 
 if __name__ == "__main__":
-    #get_artist_info()
+    get_artist_info()
     get_artist_monthly_listeners()
