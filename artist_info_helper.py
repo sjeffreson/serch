@@ -1,6 +1,5 @@
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from spotipy.exceptions import SpotifyException
+from spotipy.oauth2 import SpotifyClientCredentials
 
 import numpy as np
 from datetime import datetime
@@ -22,13 +21,14 @@ export SPOTIPY_CLIENT_SECRET='your-spotify-client-secret'
 export SPOTIPY_REDIRECT_URI='your-app-redirect-url'
 '''
 
-scope = "playlist-read-private playlist-read-collaborative"
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+client_credentials_manager = SpotifyClientCredentials()
+sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
 # TO DO: put these in a config file
 DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
 DEFAULT_ARTIST_NAMES_FILE = "all_artist_names.csv"
 DEFAULT_DATAFRAME_FILE = "Spotify_artist_info.csv"
+DEFAULT_MISSING_NAMES_FILE = "missing_names.csv"
 CURRENT_YEAR = datetime.now().year
 TIMEOUT = 10*60
 
@@ -50,6 +50,29 @@ def get_artist_spotify_id(artist_name, limit=10) -> Dict[str, str]:
                 return artist['id']
         return None
 
+def get_artist_spotify_id_deepscrape(artist_name) -> Dict[str, str]:
+    '''Fetch artist id from Spotify by name, searching through all 1,000 results
+    for an exact match. 50 is the max. limit per page.'''
+
+    results = sp.search(q=f'artist:"{artist_name}"', type='artist', limit=50)
+    artists = results['artists']['items']
+
+    if len(artists) == 0:
+        return None
+    else:
+        for artist in artists:
+            if artist['name'].lower() == artist_name.lower():
+                logger.info(f"Found {artist_name} in deep search.")
+                return artist['id']
+        while results['artists']['next']:
+            results = sp.next(results['artists'])
+            for artist in results['artists']['items']:
+                if artist['name'].lower() == artist_name.lower():
+                    logger.info(f"Found {artist_name} in deep search.")
+                    return artist['id']
+        logger.info(f"Could not find {artist_name} in deep search.")
+        return None
+
 def get_artist_release_dates(artist_id) -> List[str]:
     '''Get the release years of all albums and singles by a given artist.'''
 
@@ -65,6 +88,20 @@ def get_artist_release_dates(artist_id) -> List[str]:
             album_ids.append(album['id'])
     release_dates = [int(date.split('-')[0]) for date in release_dates]
     return album_ids, release_dates, album_types, total_tracks
+
+def get_artist_random_track_id(artist_id) -> str:
+    '''Get a random track ID from a given artist. Just the first track from
+    the first album or single that Spotify returns.'''
+
+    artist_albums = sp.artist_albums(artist_id, album_type='album,single')
+    for album in artist_albums['items']:
+        album_id = album['id']
+        if album['album_type'] == 'album' or album['album_type'] == 'single':
+            album_tracks = sp.album_tracks(album_id)
+            if len(album_tracks['items']) > 0:
+                return album_tracks['items'][0]['id']
+
+    return None
 
 class ArtistInfoDict:
     '''Data structure to store artist information. Default keys are listed.
@@ -189,9 +226,9 @@ def generate_artist_info_dict(artists_info) -> ArtistInfoDict:
 
 def get_active_artists(artist_info_dict, strict=False) -> Dict[str, np.array]:
     '''Get artists from artist_info that fulfil both of the following:
-    1. Have produced new music in the past five (two) years
-    2. If they're more than two (zero) years old, have an average of
-    two (four) tracks per year since their first release.
+    1. Have produced new music in the past five years
+    2. If they're more than one years old, have an average of
+    two tracks per year over the last ten years
 
     args:
         artist_info_dict: dict or Pandas dataframe of artist information
@@ -205,24 +242,14 @@ def get_active_artists(artist_info_dict, strict=False) -> Dict[str, np.array]:
         logger.critical(f"Missing required keys in artist_info: {required_keys}")
         sys.exit(1)
 
-    if strict:
-        num_years = 2
-        num_tracks_per_year = 4
-        first_release_cnd = 0 # start counting tracks from this many years before current
-    else:
-        num_years = 5
-        num_tracks_per_year = 2
-        first_release_cnd = 2
-
     cnd0 = np.array([num_releases > 0 for num_releases in artist_info_dict['num_releases']])
     active_artist_info = {key: np.array(artist_info_dict[key])[cnd0] for key in artist_info_dict.keys()}
 
-    cnd1 = np.array([last_release > CURRENT_YEAR - num_years for last_release in active_artist_info['last_release']])
+    cnd1 = np.array([last_release > CURRENT_YEAR - 5 for last_release in active_artist_info['last_release']])
     active_artist_info = {key: np.array(active_artist_info[key])[cnd1] for key in active_artist_info.keys()}
 
     cnd2 = np.array([
-        (CURRENT_YEAR - first_release < first_release_cnd) or
-        (num_tracks > (CURRENT_YEAR - first_release)*num_tracks_per_year)
+        (CURRENT_YEAR - first_release < 2) or (num_tracks > (CURRENT_YEAR - first_release) * 2)
         for first_release, num_tracks
         in zip(active_artist_info['first_release'], active_artist_info['num_tracks'])
     ])

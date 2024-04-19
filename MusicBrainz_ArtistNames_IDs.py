@@ -1,5 +1,5 @@
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 from spotipy.exceptions import SpotifyException
 
 import random
@@ -29,10 +29,9 @@ export SPOTIPY_CLIENT_SECRET='your-spotify-client-secret'
 export SPOTIPY_REDIRECT_URI='your-app-redirect-url'
 '''
 
-scope = "playlist-read-private playlist-read-collaborative"
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+client_credentials_manager = SpotifyClientCredentials()
+sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-# TO DO: put these in a config file
 DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
 DEFAULT_ARTIST_NAMES_FILE = "all_artist_names.csv"
 DEFAULT_ARTIST_IDS_FILE = "artist_ids.csv"
@@ -168,7 +167,7 @@ class ArtistNames:
         else:
             missing_names_df.to_csv(DEFAULT_OUTPUT_DIR + DEFAULT_MISSING_NAMES_FILE, mode='a', header=False, index=False)
             logger.info(f'Appended {len(missing_names_df)} missing artist names to existing file: {DEFAULT_OUTPUT_DIR + DEFAULT_MISSING_NAMES_FILE}')
-
+    
 if __name__ == "__main__":
     '''Spotify seems to have an (undisclosed) daily limit on the number of requests that
     can be made. Keep this in mind.'''

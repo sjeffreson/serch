@@ -1,6 +1,5 @@
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
-from spotipy.oauth2 import SpotifyOAuth
 
 import pandas as pd
 import numpy as np
@@ -170,9 +169,11 @@ def get_artists_last_24hrs(playlist_id: str) -> Tuple[List[str], List[str]]:
 
     return artist_ids, track_ids
 
-def pickle_1000_artists_last_24hrs(playlist_df: pd.DataFrame) -> None:
+def pickle_1000_artists_last_24hrs() -> None:
     '''Store a random selection of 1000 of all artists that have been added to
     featured playlists in the last 24 hours, in a temporary pickle.'''
+
+    playlist_df = pd.read_csv(DEFAULT_OUTPUT_DIR + DEFAULT_DATAFRAME)
 
     artist_ids, track_ids, playlists_found = [], [], []
     for playlist_id, playlist_name in zip(playlist_df['playlist_id'], playlist_df['playlist_name']):
@@ -289,9 +290,9 @@ def delete_pickles() -> None:
     '''Delete all temporary pickles generated in the process of gathering
     artist information for the last 24 hours.'''
 
-    os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE))
     os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_monthly_listeners.pkl".format(CURRENT_DATE))
     os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info_dict.pkl".format(CURRENT_DATE))
+    os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE))
     logger.info("Deleted all temporary pickles.")
 
 def combine_existing_csvs() -> None:
@@ -304,16 +305,7 @@ def combine_existing_csvs() -> None:
         else:
             total_info_df = df
     
-def artist_info_from_spotify_playlists() -> None:
-    '''Main function to gather artist information from Spotify playlists.'''
-
-    pickle_1000_artists_last_24hrs(pd.read_csv(DEFAULT_OUTPUT_DIR + DEFAULT_DATAFRAME))
-    scrape_monthly_listeners_for_pickled_artists()
+if __name__ == "__main__":
     get_artist_info_for_pickled_artists()
     gather_artist_info_last_24hrs()
     delete_pickles()
-
-if __name__ == "__main__":
-    #find_playlists_across_markets()
-    store_available_spotify_playlists()
-    artist_info_from_spotify_playlists()
