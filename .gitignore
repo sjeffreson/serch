@@ -169,3 +169,6 @@ archived-scripts/
 err_log*
 out_log*
 *.log
+
+# scheduled scripts
+SCHEDRUN*

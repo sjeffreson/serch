@@ -158,7 +158,7 @@ def generate_tracks_for_artists(num_to_scrape: int=None) -> None:
     track_info_df.to_csv(DEFAULT_OUTPUT_DIR + tracks_info_file, mode='a', index=False, header=False)
 
 if __name__ == "__main__":
-    #get_artist_info(num_to_scrape=2000)
-    get_artist_monthly_listeners()
+    get_artist_info(num_to_scrape=2000)
+    #get_artist_monthly_listeners()
     #get_artist_random_track_ids(num_to_scrape=1000)
     #generate_tracks_for_artists()
