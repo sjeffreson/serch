@@ -36,6 +36,7 @@ DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-
 DEFAULT_ARTIST_NAMES_FILE = "all_artist_names.csv"
 DEFAULT_ARTIST_IDS_FILE = "artist_ids.csv"
 DEFAULT_MISSING_NAMES_FILE = "missing_names.csv"
+DEFAULT_DEEP_MISSING_NAMES_FILE = "deep_missing_names.csv"
 CURRENT_YEAR = datetime.now().year
 TIMEOUT = 10*60
 
@@ -110,7 +111,9 @@ class ArtistNames:
             saved_artists = self.get_names_already_in_file(DEFAULT_ARTIST_IDS_FILE)
         if os.path.exists(DEFAULT_OUTPUT_DIR + DEFAULT_MISSING_NAMES_FILE):
             missing_artists = self.get_names_already_in_file(DEFAULT_MISSING_NAMES_FILE)
-        saved_artists += missing_artists
+        if os.path.exists(DEFAULT_OUTPUT_DIR + DEFAULT_DEEP_MISSING_NAMES_FILE):
+            deep_missing_artists = self.get_names_already_in_file(DEFAULT_DEEP_MISSING_NAMES_FILE)
+        saved_artists += missing_artists + deep_missing_artists
 
         if len(saved_artists) > 0:
             logger.info(f'Already have {len(saved_artists)} of requested artists.')
@@ -173,16 +176,16 @@ if __name__ == "__main__":
     can be made. Keep this in mind.'''
 
     '''Check total number of rows in the existing IDs file and missing names file combined'''
+    total_names_stored = 0
     if os.path.exists(DEFAULT_OUTPUT_DIR + DEFAULT_ARTIST_IDS_FILE):
         artist_ids_df = pd.read_csv(DEFAULT_OUTPUT_DIR + DEFAULT_ARTIST_IDS_FILE)
         total_names_stored = len(artist_ids_df)
-    else:
-        total_names_stored = 0
     if os.path.exists(DEFAULT_OUTPUT_DIR + DEFAULT_MISSING_NAMES_FILE):
         missing_names_df = pd.read_csv(DEFAULT_OUTPUT_DIR + DEFAULT_MISSING_NAMES_FILE)
         total_names_stored += len(missing_names_df)
-    else:
-        total_names_stored = 0
+    if os.path.exists(DEFAULT_OUTPUT_DIR + DEFAULT_DEEP_MISSING_NAMES_FILE):
+        deep_missing_names_df = pd.read_csv(DEFAULT_OUTPUT_DIR + DEFAULT_DEEP_MISSING_NAMES_FILE)
+        total_names_stored += len(deep_missing_names_df)
 
     '''Run the ID search on 2000 new artists in a batch. Stored names will in excluded
     from the sample, so if we keep the seed fixed, we need to sample 1000 more artists

@@ -193,7 +193,7 @@ def pickle_1000_artists_last_24hrs() -> None:
         logger.info("Added {:d} artists and tracks to the list.".format(len(artists_to_add)))
 
     '''Write track IDs to CSV file'''
-    with open(DEFAULT_OUTPUT_DIR + "track_ids_last_24hrs_{:s}.csv".format(CURRENT_DATE), "a") as f:
+    with open(DEFAULT_OUTPUT_DIR + "track_ids_last_24hrs.csv", "a") as f:
         f.write("track_ids,artist_ids\n")
         for track_id, artist_id in zip(track_ids, artist_ids):
             f.write("{:s},{:s}\n".format(track_id, artist_id))
@@ -213,7 +213,7 @@ def pickle_1000_artists_last_24hrs() -> None:
         f.write("{:s},{:d}\n".format(CURRENT_DATE, len(artist_ids)))
     f.close()
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE), "wb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs.pkl", "wb") as f:
         pickle.dump(artist_dict, f)
 
 def scrape_monthly_listeners_for_pickled_artists() -> Dict[str, int]:
@@ -222,7 +222,7 @@ def scrape_monthly_listeners_for_pickled_artists() -> Dict[str, int]:
     by the function pickle_all_artists_last_24hrs, and produces another
     temporary pickle of artist IDs and their monthly listeners.'''
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE), "rb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs.pkl", "rb") as f:
         artists_dict = pickle.load(f)
         if any (len(artists_dict['ids']) != len(artists_dict[key]) for key in artists_dict.keys()):
             logger.error("Length of artist IDs and other arrays in the dictionary are not the same.")
@@ -241,7 +241,7 @@ def scrape_monthly_listeners_for_pickled_artists() -> Dict[str, int]:
             logger.info("Scraped monthly listeners for {:d} artists. Current average is {:f}.".format(i, sum(artist_monthly_listeners_print)/i))
 
     artists_dict['monthly_listeners'] = artist_monthly_listeners
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_monthly_listeners.pkl".format(CURRENT_DATE), "wb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_monthly_listeners.pkl", "wb") as f:
         pickle.dump(artists_dict, f)
 
 def get_artist_info_for_pickled_artists() -> Dict[str, Dict[str, str]]:
@@ -250,7 +250,7 @@ def get_artist_info_for_pickled_artists() -> Dict[str, Dict[str, str]]:
     by the function pickle_all_artists_last_24hrs, and produces another
     temporary pickle of artist IDs and their information.'''
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE), "rb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs.pkl", "rb") as f:
         artists_dict = pickle.load(f)
         if any (len(artists_dict['ids']) != len(artists_dict[key]) for key in artists_dict.keys()):
             logger.error("Length of artist IDs and other arrays in the dictionary are not the same.")
@@ -264,17 +264,17 @@ def get_artist_info_for_pickled_artists() -> Dict[str, Dict[str, str]]:
     retrieving artist album information via the artist_albums endpoint.'''
     artist_info_dict = aih.generate_artist_info_dict(artists_info)
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info_dict.pkl".format(CURRENT_DATE), "wb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_info_dict.pkl", "wb") as f:
         pickle.dump(artist_info_dict, f)
 
 def gather_artist_info_last_24hrs() -> None:
     '''Gather artist information from all temporary pickles, consolidate in a csv
     file and delete the temporary pickles.'''
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info_dict.pkl".format(CURRENT_DATE), "rb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_info_dict.pkl", "rb") as f:
         artist_info_dict = pickle.load(f)
 
-    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_monthly_listeners.pkl".format(CURRENT_DATE), "rb") as f:
+    with open(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_monthly_listeners.pkl", "rb") as f:
         monthly_listeners_dict = pickle.load(f)
 
     '''Combine the dicts and write all info to a csv'''
@@ -285,27 +285,31 @@ def gather_artist_info_last_24hrs() -> None:
 
     total_info_df = pd.DataFrame(total_info_dict)
     total_info_df.to_csv(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info.csv".format(CURRENT_DATE), index=False)
+    logger.info(
+        "Saved all artist information to csv file: {:s}".format(
+            DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info.csv".format(CURRENT_DATE)
+        ))
 
 def delete_pickles() -> None:
     '''Delete all temporary pickles generated in the process of gathering
     artist information for the last 24 hours.'''
 
-    os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_monthly_listeners.pkl".format(CURRENT_DATE))
-    os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}_info_dict.pkl".format(CURRENT_DATE))
-    os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_{:s}.pkl".format(CURRENT_DATE))
+    try:
+        os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_monthly_listeners.pkl")
+        logger.info("Deleted monthly listeners pickle.")
+    except FileNotFoundError:
+        logger.info("Monthly listeners pickle not found: {:s}".format(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_monthly_listeners.pkl"))
+    try:
+        os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_info_dict.pkl".format(CURRENT_DATE))
+        logger.info("Deleted info dict pickle.")
+    except FileNotFoundError:
+        logger.info("Info dict pickle not found: {:s}".format(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_info_dict.pkl"))
+    try:
+        os.remove(DEFAULT_OUTPUT_DIR + "artists_last_24hrs.pkl")
+        logger.info("Deleted artist IDs pickle.")
+    except:
+        logger.info("Artist IDs pickle not found: {:s}".format(DEFAULT_OUTPUT_DIR + "artists_last_24hrs.pkl"))
     logger.info("Deleted all temporary pickles.")
 
-def combine_existing_csvs() -> None:
-    '''Load all the csvs we have created into memory'''
-    names = glob.glob(DEFAULT_OUTPUT_DIR + "artists_last_24hrs_*_info.csv")
-    for name in names:
-        df = pd.read_csv(name)
-        if 'total_info_df' in locals():
-            total_info_df = pd.concat([total_info_df, df])
-        else:
-            total_info_df = df
-    
 if __name__ == "__main__":
-    get_artist_info_for_pickled_artists()
-    gather_artist_info_last_24hrs()
-    delete_pickles()
+    pass
