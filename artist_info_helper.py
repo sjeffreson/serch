@@ -24,11 +24,6 @@ export SPOTIPY_REDIRECT_URI='your-app-redirect-url'
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-# TO DO: put these in a config file
-DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
-DEFAULT_ARTIST_NAMES_FILE = "all_artist_names.csv"
-DEFAULT_DATAFRAME_FILE = "Spotify_artist_info.csv"
-DEFAULT_MISSING_NAMES_FILE = "missing_names.csv"
 CURRENT_YEAR = datetime.now().year
 TIMEOUT = 10*60
 

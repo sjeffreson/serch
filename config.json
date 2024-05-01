@@ -1,0 +1,14 @@
+{
+  "filenames": {
+    "artist_names": "all_artist_names.csv",
+    "artist_ids": "artist_ids.csv",
+    "missing_names": "missing_names.csv",
+    "deep_missing_names": "deep_missing_names.csv",
+    "artist_info": "Spotify_artist_info.csv",
+    "artist_info_mnth_lstnrs": "Spotify_artist_info_Mnth-Lstnrs.csv"
+  },
+  "paths": {
+    "output_dir": "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/",
+    "editorial_output_dir": "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/Editorial-playlists/"
+  }
+}

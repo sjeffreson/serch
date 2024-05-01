@@ -4,10 +4,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 import pandas as pd
-import os, glob
+import os, glob, json
 import pickle
 
-DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
+with open('config.json') as f:
+    config = json.load(f)
+OUTPUT_DIR = config['paths']['output_dir']
 
 def get_all_artist_names_musicbrainz(start_offset=0, num_artists=1000):
     '''Get num_artists artist names from the MusicBrainz database, starting at
@@ -48,7 +50,7 @@ def save_all_artist_names_musicbrainz_temp():
     while num_artist_names == num_artists_batch: # retrieved a full batch, might be more
         all_artist_names = get_all_artist_names_musicbrainz(start_offset=start_offset, num_artists=num_artists_batch)
 
-        filename = DEFAULT_OUTPUT_DIR + "/artist_names_{:d}.pkl".format(start_offset)
+        filename = OUTPUT_DIR + "/artist_names_{:d}.pkl".format(start_offset)
         with open(filename, "wb") as f:
             pickle.dump(all_artist_names, f)
         logger.info(f"Saved artist names to {filename}")
@@ -59,21 +61,21 @@ def save_all_artist_names_musicbrainz_temp():
 def write_all_pickles_to_csv():
     '''Write all pickles to a single csv file'''
 
-    all_pickles = glob.glob(DEFAULT_OUTPUT_DIR + "artist_names_*.pkl")
+    all_pickles = glob.glob(OUTPUT_DIR + "artist_names_*.pkl")
     all_artist_names = []
     for p in all_pickles:
         with open(p, "rb") as f:
             all_artist_names.extend(pickle.load(f))
 
     df = pd.DataFrame(all_artist_names, columns=["artist_name"])
-    df.to_csv(DEFAULT_OUTPUT_DIR + "all_artist_names.csv", index=False)
+    df.to_csv(OUTPUT_DIR + "all_artist_names.csv", index=False)
 
 def check_len_artist_name_csv():
     '''Check the length of the csv file'''
 
-    assert os.path.exists(DEFAULT_OUTPUT_DIR + "all_artist_names.csv"), "CSV file does not exist"
+    assert os.path.exists(OUTPUT_DIR + "all_artist_names.csv"), "CSV file does not exist"
 
-    df = pd.read_csv(DEFAULT_OUTPUT_DIR + "all_artist_names.csv")
+    df = pd.read_csv(OUTPUT_DIR + "all_artist_names.csv")
     print(len(df))
 
 if __name__ == "__main__":

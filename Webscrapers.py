@@ -1,17 +1,17 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-import os, time
+import os, time, json
 
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 from typing import List, Dict, Tuple
 
-# TO DO: put these in a config file
-DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
-DATAFRAME_ORIG = "Spotify_artist_info.csv"
-DATAFRAME_MNTHLSTNRS = "Spotify_artist_info_Mnth-Lstnrs.csv"
+with open('config.json') as f:
+    config = json.load(f)
+OUTPUT_DIR = config['paths']['output_dir']
+DATAFRAME_MNTHLSTNRS = config['filenames']["artist_info_mnth_lstnrs"]
 
 def scrape_monthly_listeners(artist_id, artist_name) -> int:
     url = f"https://open.spotify.com/artist/{artist_id}"
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         ' baroque ', ' renaissance ', ' medieval ', ' romantic ', ' modern ', ' contemporary ',
     ]
 
-    artist_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + DATAFRAME_MNTHLSTNRS, usecols=["ids", "names", "genres"])
+    artist_info_df = pd.read_csv(OUTPUT_DIR + DATAFRAME_MNTHLSTNRS, usecols=["ids", "names", "genres"])
     artist_ids = artist_info_df[artist_info_df["genres"].isnull()]["ids"].tolist()
     logger.info(f"Number of artists with no genres: {len(artist_ids)}")
 
@@ -82,12 +82,12 @@ if __name__ == "__main__":
                 logger.info(f"Genres not found for artist id: {artist_id} and artist name: {artist_name}, {artist_id}.")
     
         artist_info_genres_df = pd.DataFrame({"ids": artist_ids_genres, "names": artist_names, "genres": artist_genres})
-        if os.path.exists(DEFAULT_OUTPUT_DIR + "Spotify_bio_genres.csv"):
-            artist_info_genres_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_bio_genres.csv", mode='a', header=False, index=False)
-            logger.info(f'Appended {len(artist_info_genres_df)} artist genres to existing file: {DEFAULT_OUTPUT_DIR + "Spotify_bio_genres.csv"}')
+        if os.path.exists(OUTPUT_DIR + "Spotify_bio_genres.csv"):
+            artist_info_genres_df.to_csv(OUTPUT_DIR + "Spotify_bio_genres.csv", mode='a', header=False, index=False)
+            logger.info(f'Appended {len(artist_info_genres_df)} artist genres to existing file: {OUTPUT_DIR + "Spotify_bio_genres.csv"}')
         else:
-            artist_info_genres_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_bio_genres.csv", index=False)
-            logger.info(f'Saved {len(artist_info_genres_df)} artist genres to new file: {DEFAULT_OUTPUT_DIR + "Spotify_bio_genres.csv"}')
+            artist_info_genres_df.to_csv(OUTPUT_DIR + "Spotify_bio_genres.csv", index=False)
+            logger.info(f'Saved {len(artist_info_genres_df)} artist genres to new file: {OUTPUT_DIR + "Spotify_bio_genres.csv"}')
         artist_ids = artist_ids[100:]
         logger.info(f"Sleeping for 10 seconds.")
         time.sleep(10)

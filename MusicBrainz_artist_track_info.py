@@ -6,7 +6,7 @@ import numpy as np
 from typing import List, Dict, Tuple
 import time, os
 from datetime import datetime
-import pickle
+import pickle, json
 
 from Webscrapers import scrape_monthly_listeners
 import artist_info_helper as aih
@@ -17,9 +17,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 '''
-Just some basic functions to quickly retrieve the popularity of artists in various
-Spotify and custom playlists.
-
 Remember environment variables:
 export SPOTIPY_CLIENT_ID='your-spotify-client-id'
 export SPOTIPY_CLIENT_SECRET='your-spotify-client-secret'
@@ -29,21 +26,22 @@ export SPOTIPY_REDIRECT_URI='your-app-redirect-url'
 client_credentials_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-# TO DO: put these in a config file
-DEFAULT_OUTPUT_DIR = "/n/holystore01/LABS/itc_lab/Users/sjeffreson/serch/artist-database/"
+with open('config.json') as f:
+    config = json.load(f)
+OUTPUT_DIR = config['paths']['output_dir']
 CURRENT_DATE = datetime.now().strftime("%Y-%m-%d")
-DEFAULT_DATAFRAME = "Playlist_names-IDs_{:s}.csv".format(CURRENT_DATE)
 USER_ID = 'spotify'
 TIMEOUT = 10*60
 
-def get_artist_info(num_to_scrape: int=None) -> None:
+def get_artist_info(num_to_scrape: int=1000) -> None:
     '''Get artist information for all artist IDs that are in artist_ids.csv but not
-    in Spotify_artist_info.csv.'''
+    in Spotify_artist_info.csv. If num_to_scrape is None, scrape all that have not
+    yet been scraped.'''
 
-    artist_ids_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "artist_ids.csv", usecols=["ids"])
+    artist_ids_df = pd.read_csv(OUTPUT_DIR + "artist_ids.csv", usecols=["ids"])
     artist_ids_total = artist_ids_df["ids"].tolist()
 
-    artist_ids_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info.csv", usecols=["ids"])
+    artist_ids_info_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info.csv", usecols=["ids"])
     artist_ids_info = artist_ids_info_df["ids"].tolist()
 
     artist_ids = [x for x in artist_ids_total if x not in artist_ids_info]
@@ -60,16 +58,16 @@ def get_artist_info(num_to_scrape: int=None) -> None:
 
     '''Append to the Spotify_artist_info.csv file as a new row.'''
     artist_info_df = pd.DataFrame({key: artist_info_dict[key] for key in artist_info_dict.keys})
-    artist_info_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info.csv", mode='a', header=False, index=False)
+    artist_info_df.to_csv(OUTPUT_DIR + "Spotify_artist_info.csv", mode='a', header=False, index=False)
 
 def get_artist_monthly_listeners() -> None:
     '''Scrape monthly listeners for artist IDs that appear in Spotify_artist_info.csv
     but not in Spotify_artist_info_Mnth-Lstnrs.csv.'''
 
-    artist_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info.csv")
+    artist_info_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info.csv")
     artist_ids = artist_info_df["ids"].tolist()
 
-    artist_info_mnth_lstnrs_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv", usecols=["ids"])
+    artist_info_mnth_lstnrs_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv", usecols=["ids"])
     artist_ids_mnth_lstnrs = artist_info_mnth_lstnrs_df["ids"].tolist()
 
     artist_ids = [x for x in artist_ids if x not in artist_ids_mnth_lstnrs]
@@ -86,20 +84,20 @@ def get_artist_monthly_listeners() -> None:
 
     '''Append to the Spotify_artist_info_Mnth-Lstnrs.csv file, along with all the info
     from Spotify_artist_info.csv for those IDs.'''
-    artist_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info.csv")
+    artist_info_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info.csv")
     artist_info_df = artist_info_df[artist_info_df["ids"].isin(artist_ids)]
     artist_info_df["monthly_listeners"] = artist_monthly_listeners
-    artist_info_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv", mode='a', header=False, index=False)
+    artist_info_df.to_csv(OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv", mode='a', header=False, index=False)
 
 def get_artist_random_track_ids(num_to_scrape: int=None) -> None:
     '''Scrape monthly listeners for artist IDs that appear in Spotify_artist_info_Mnth-Lstnrs.csv
     but not in Spotify_artist_info_Random-Track-IDs.csv. If num_to_scrape is None, scrape all.'''
 
-    artist_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv")
+    artist_info_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info_Mnth-Lstnrs.csv")
     artist_ids = artist_info_df["ids"].tolist()
 
     try:
-        artist_info_rand_tracks_df = pd.read_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Random-Track-IDs.csv", usecols=["ids"])
+        artist_info_rand_tracks_df = pd.read_csv(OUTPUT_DIR + "Spotify_artist_info_Random-Track-IDs.csv", usecols=["ids"])
         artist_ids_rand_tracks = artist_info_rand_tracks_df["ids"].tolist()
     except FileNotFoundError:
         artist_ids_rand_tracks = []
@@ -120,7 +118,7 @@ def get_artist_random_track_ids(num_to_scrape: int=None) -> None:
 
     '''Append the artist IDs and track IDs to Spotify_artist_info_Random-Track-IDs file.'''
     artist_info_to_add_df = pd.DataFrame({"ids": artist_ids, "track_ids": artist_random_tracks})
-    artist_info_to_add_df.to_csv(DEFAULT_OUTPUT_DIR + "Spotify_artist_info_Random-Track-IDs.csv", mode='a', header=False, index=False)
+    artist_info_to_add_df.to_csv(OUTPUT_DIR + "Spotify_artist_info_Random-Track-IDs.csv", mode='a', header=False, index=False)
 
 def generate_tracks_for_artists(num_to_scrape: int=None) -> None:
     '''Generate track info for a number of artists by reading in the track IDs for those artists
@@ -132,7 +130,7 @@ def generate_tracks_for_artists(num_to_scrape: int=None) -> None:
 
     '''Generate track info, by reading in the track IDs, selecting the ones to scrape,
     and then retrieving the full track info structure for each track ID.'''
-    track_ids_df = pd.read_csv(DEFAULT_OUTPUT_DIR + tracks_id_file, usecols=["track_ids"])
+    track_ids_df = pd.read_csv(OUTPUT_DIR + tracks_id_file, usecols=["track_ids"])
     track_ids = track_ids_df["track_ids"].tolist()
     track_ids = [x for x in track_ids if x == x]
     if(len(track_ids) != len(list(set(track_ids)))): # should be no duplicates
@@ -140,7 +138,7 @@ def generate_tracks_for_artists(num_to_scrape: int=None) -> None:
         return
     '''Remove tracks already scraped'''
     try:
-        track_info_df = pd.read_csv(DEFAULT_OUTPUT_DIR + tracks_info_file)
+        track_info_df = pd.read_csv(OUTPUT_DIR + tracks_info_file)
         track_ids_scraped = track_info_df["ids"].tolist()
     except FileNotFoundError:
         track_ids_scraped = []
@@ -155,7 +153,7 @@ def generate_tracks_for_artists(num_to_scrape: int=None) -> None:
 
     '''Append to the Spotify_track_info.csv file as a new row.'''
     track_info_df = pd.DataFrame({key: track_info_dict[key] for key in track_info_dict.keys})
-    track_info_df.to_csv(DEFAULT_OUTPUT_DIR + tracks_info_file, mode='a', index=False, header=False)
+    track_info_df.to_csv(OUTPUT_DIR + tracks_info_file, mode='a', index=False, header=False)
 
 if __name__ == "__main__":
     get_artist_info(num_to_scrape=2000)
