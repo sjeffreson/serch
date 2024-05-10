@@ -55,13 +55,6 @@ def load_clean_artist_names() -> List[str]:
 
     return artist_names
 
-def sample_artist_names(artist_names: List[str], random_seed: int, rand_num_artist_names: int) -> List[str]:
-    '''Whittle down to a sample of artist names, from the total list retrieved from
-    MusicBrainz.'''
-
-    random.seed(random_seed)
-    return random.sample(artist_names, rand_num_artist_names)
-
 def get_names_already_in_file(artist_names: List[str], filename: str) -> List[str]:
     '''Retrieve artist names already stored in the file, to avoid duplicates'''
 
@@ -77,12 +70,13 @@ def get_names_already_in_file(artist_names: List[str], filename: str) -> List[st
     else:
         return saved_artists
 
-def only_new_names(artist_names: List[str]) -> List[str]:
+def only_new_names(artist_names: List[str], rand_num_artist_names: str) -> List[str]:
     '''Check if artist names in list already have assigned info in the local datastore,
     or to the list of missing names, and return those that do not.'''
 
+    saved_artists = []
     if os.path.exists(OUTPUT_DIR + ARTIST_IDS_FILE):
-        saved_artists = get_names_already_in_file(artist_names, ARTIST_IDS_FILE)
+        saved_artists.extend(get_names_already_in_file(artist_names, ARTIST_IDS_FILE))
     if os.path.exists(OUTPUT_DIR + MISSING_NAMES_FILE):
         missing_artists = get_names_already_in_file(artist_names, MISSING_NAMES_FILE)
     if os.path.exists(OUTPUT_DIR + DEEP_MISSING_NAMES_FILE):
@@ -90,12 +84,25 @@ def only_new_names(artist_names: List[str]) -> List[str]:
     saved_artists += missing_artists + deep_missing_artists
 
     if len(saved_artists) > 0:
-        logger.info(f'Already have {len(saved_artists)} of requested artists.')
-        new_artist_names = [name for name in artist_names if name not in saved_artists]
-        artist_names = new_artist_names
+        logger.info(f'Already have {len(saved_artists)} of MusicBrainz artists.')
+
+    new_artist_names = []
+    while len(new_artist_names) < rand_num_artist_names:
+        name = artist_names.pop()
+        if name not in saved_artists:
+            new_artist_names.append(name)
         
-    logger.info(f'Found {len(artist_names)} new artists to fetch from Spotify')
-    return artist_names
+    logger.info(f'Found {len(new_artist_names)} new artists names to save.')
+    return new_artist_names
+
+def sample_artist_names(artist_names: List[str], random_seed: int, rand_num_artist_names: int) -> List[str]:
+    '''Whittle down to a sample of artist names, from the total list retrieved from
+    MusicBrainz.'''
+
+    random.seed(random_seed)
+    artist_names_sample = random.sample(artist_names, len(artist_names)-1) # just return all, but randomized
+
+    return only_new_names(artist_names_sample, rand_num_artist_names)
 
 def retrieve_artist_ids(artist_names: List[str]) -> Tuple[List[str], List[str]]:
     '''Assign Spotify IDs to the artist names in the list. This includes a time-out
@@ -166,17 +173,72 @@ def extend_sample_MusicBrainz_artist_ids(num_artist_names: int=1000, random_seed
     start_time = time.time()
 
     artist_names = load_clean_artist_names()
-    artist_names = sample_artist_names(
+    new_artist_names = sample_artist_names(
         artist_names=artist_names,
         random_seed=random_seed,
-        rand_num_artist_names=total_names_stored + num_artist_names # remember: stored names will be excluded
+        rand_num_artist_names=num_artist_names
     )
-    artist_names = only_new_names(artist_names)
-    save_artist_ids(artist_names)
+    save_artist_ids(new_artist_names)
 
     print(f"Total time to load and save data: {time.time() - start_time}.")
+
+def save_deepscraped_missing_ids(num_to_scrape=1000) -> int:
+    '''Check through missing_names.csv and try again to get the IDs for these artists,
+    using the maximum search limit of 1,000. If the ID still isn't found, shift to a new
+    file deep-missing_names.csv. If found, add to the artist_ids.csv file.'''
+
+    missing_names_df = pd.read_csv(OUTPUT_DIR + MISSING_NAMES_FILE)
+    missing_names = missing_names_df['names'].tolist()
+    if num_to_scrape is not None:
+        missing_names = missing_names[:num_to_scrape]
+
+    deep_found_ids, deep_found_names, deep_missing_names = [], [], []
+    for missing_name in missing_names:
+        spot_id = aih.get_artist_spotify_id_deepscrape(missing_name)
+        if spot_id is not None:
+            deep_found_ids.append(spot_id)
+            deep_found_names.append(missing_name)
+        else:
+            deep_missing_names.append(missing_name)
+
+    '''Append the deep-found IDs to the artist_ids.csv file'''
+    if len(deep_found_ids) > 0:
+        deep_found_ids_df = pd.DataFrame({'names': deep_found_names, 'ids': deep_found_ids})
+        if not os.path.exists(OUTPUT_DIR + ARTIST_IDS_FILE):
+            deep_found_ids_df.to_csv(OUTPUT_DIR + ARTIST_IDS_FILE, index=False)
+            logger.info(f'Saved {len(deep_found_ids_df)} deep-scraped artist IDs to new file: {OUTPUT_DIR + ARTIST_IDS_FILE}')
+        else:
+            deep_found_ids_df.to_csv(OUTPUT_DIR + ARTIST_IDS_FILE, mode='a', header=False, index=False)
+            logger.info(f'Appended {len(deep_found_ids_df)} deep-scraped artist IDs to existing file: {OUTPUT_DIR + ARTIST_IDS_FILE}')
+
+    '''Save the deep-missing names to a new file'''
+    deep_missing_names_df = pd.DataFrame({'names': deep_missing_names})
+    if not os.path.exists(OUTPUT_DIR + 'deep_missing_names.csv'):
+        deep_missing_names_df.to_csv(OUTPUT_DIR + 'deep_missing_names.csv', index=False)
+        logger.info(f'Saved {len(deep_missing_names_df)} deep-missing artist names to new file: {OUTPUT_DIR + "deep_missing_names.csv"}')
+    else:
+        deep_missing_names_df.to_csv(OUTPUT_DIR + 'deep_missing_names.csv', mode='a', header=False, index=False)
+        logger.info(f'Appended {len(deep_missing_names_df)} deep-missing artist names to existing file: {OUTPUT_DIR + "deep_missing_names.csv"}')
+    
+    '''Remove the scraped names from the missing names file'''
+    missing_names_df = missing_names_df[~missing_names_df['names'].isin(deep_missing_names)]
+    deep_found_names_df = pd.DataFrame({'names': deep_found_names})
+    missing_names_df = missing_names_df[~missing_names_df['names'].isin(deep_found_names)]
+    missing_names_df.to_csv(OUTPUT_DIR + MISSING_NAMES_FILE, index=False)
+    logger.info(f'Removed {len(deep_missing_names) + len(deep_found_names)} deep-scraped artist names from missing names file: {OUTPUT_DIR + MISSING_NAMES_FILE}')
+
+    return len(deep_found_ids) + len(deep_missing_names)
+
+def extend_deepscraped_missing_ids() -> None:
+    for i in range(100):
+        no_returned = save_deepscraped_missing_ids(num_to_scrape=100)
+        if no_returned == 0:
+            logger.info(f'No more deep-scraped IDs found. Exiting.')
+            break
+        logger.info(f'Waiting 30 seconds before next batch.')
+        time.sleep(30)
 
 if __name__ == "__main__":
     '''Spotify seems to have an (undisclosed) daily limit on the number of requests that
     can be made. Keep this in mind.'''
-    extend_sample_MusicBrainz_artist_ids(num_artist_names=10, random_seed=42)
+    pass
