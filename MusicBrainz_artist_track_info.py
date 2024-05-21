@@ -67,7 +67,7 @@ def get_artist_info(num_to_scrape: int) -> None:
     artist_info_df = pd.DataFrame({key: artist_info_dict[key] for key in artist_info_dict.keys})
     artist_info_df.to_csv(OUTPUT_DIR + ARTIST_FILE, mode='a', header=False, index=False)
 
-def get_artist_monthly_listeners() -> None:
+def get_artist_monthly_listeners(num_to_scrape: int=1000) -> None:
     '''Scrape monthly listeners for artist IDs that appear in Spotify_artist_info.csv
     but not in Spotify_artist_info_Mnth-Lstnrs.csv.'''
 
@@ -79,6 +79,9 @@ def get_artist_monthly_listeners() -> None:
 
     artist_ids = [x for x in artist_ids if x not in artist_ids_mnth_lstnrs]
     logger.info("Total number of artists to scrape: {:d}".format(len(artist_ids)))
+
+    if num_to_scrape is not None:
+        artist_ids = artist_ids[:num_to_scrape]
 
     artist_monthly_listeners = []
     i = 0
@@ -97,9 +100,7 @@ def get_artist_monthly_listeners() -> None:
     artist_info_df.to_csv(OUTPUT_DIR + ARTIST_MNTH_LSTNRS_FILE, mode='a', header=False, index=False)
 
 def clean_artist_info_mnth_lstnrs(req_features: List[str]) -> None:
-    '''Clean the Spotify_artist_info_Mnth-Lstnrs.csv file, and save it to a temporary pickle.
-    Cleaning involves removing rows that have -1 or NaN values in any of the specified required
-    features.'''
+    '''Clean the Spotify_artist_info_Mnth-Lstnrs.csv file, and save it to a new csv file.'''
 
     artist_info_df = pd.read_csv(OUTPUT_DIR + ARTIST_MNTH_LSTNRS_FILE)
 
@@ -125,7 +126,7 @@ def clean_artist_info_mnth_lstnrs(req_features: List[str]) -> None:
     logger.info("Saved cleaned artist info to {:s}.".format(CLEAN_MNTH_LSTNRS_FILE))
 
 def get_artist_random_track_ids(num_to_scrape: int=None) -> None:
-    '''Scrape monthly listeners for artist IDs that appear in CLEANED_Spotify_artist_info_Mnth-Lstnrs.csv
+    '''Scrape a random track ID for artist IDs that appear in CLEANED_Spotify_artist_info_Mnth-Lstnrs.csv
     but not in Spotify_artist_info_Random-Track-IDs.csv. If num_to_scrape is None, scrape all.'''
 
     try:
