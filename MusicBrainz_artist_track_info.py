@@ -179,9 +179,6 @@ def generate_track_info_for_artists(num_to_scrape: int=None) -> None:
     track_ids_df = pd.read_csv(OUTPUT_DIR + tracks_id_file, usecols=["track_ids"])
     track_ids = track_ids_df["track_ids"].tolist()
     track_ids = [x for x in track_ids if x == x]
-    if(len(track_ids) != len(list(set(track_ids)))): # should be no duplicates
-        logger.error("Duplicates in track IDs.")
-        return
     '''Remove tracks already scraped'''
     try:
         track_info_df = pd.read_csv(OUTPUT_DIR + tracks_info_file)
@@ -199,7 +196,10 @@ def generate_track_info_for_artists(num_to_scrape: int=None) -> None:
 
     '''Append to the Spotify_track_info.csv file as a new row.'''
     track_info_df = pd.DataFrame({key: track_info_dict[key] for key in track_info_dict.keys})
-    track_info_df.to_csv(OUTPUT_DIR + tracks_info_file, mode='a', index=False, header=False)
+    if not os.path.exists(OUTPUT_DIR + tracks_info_file):
+        track_info_df.to_csv(OUTPUT_DIR + tracks_info_file, index=False)
+    else:
+        track_info_df.to_csv(OUTPUT_DIR + tracks_info_file, mode='a', index=False, header=False)
 
 def generate_artist_genres_from_bio(num_to_scrape: int=None) -> None:
     genres_to_search = config["genres"]
@@ -259,4 +259,5 @@ def generate_artist_genres_from_bio(num_to_scrape: int=None) -> None:
         time.sleep(10)
 
 if __name__ == "__main__":
-    pass
+    #pass
+    generate_track_info_for_artists(num_to_scrape=10)

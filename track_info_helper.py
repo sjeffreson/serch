@@ -151,9 +151,9 @@ class TrackInfoDict:
             'time_signature': 5,
             'popularity': 100,
             'markets': 180,
-            'days_since_release': 30000,
+            'days_since_release': 60,
             'monthly_listeners': 1e8,
-            'duration_ms': 3e6,
+            'duration_ms': 50,
         }
 
     def __getitem__(self, key):
